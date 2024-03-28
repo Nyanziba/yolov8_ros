@@ -31,6 +31,7 @@ from ultralytics.engine.results import Boxes
 from ultralytics.engine.results import Masks
 from ultralytics.engine.results import Keypoints
 
+from realsense2_camera_msgs.msg import RGBD
 from sensor_msgs.msg import Image
 from yolov8_msgs.msg import Point2D
 from yolov8_msgs.msg import BoundingBox2D
@@ -83,7 +84,7 @@ class Yolov8Node(Node):
 
         # subs
         self._sub = self.create_subscription(
-            Image, "image_raw", self.image_cb,
+            RGBD, "image_raw", self.image_cb,
             image_qos_profile
         )
 
@@ -189,12 +190,12 @@ class Yolov8Node(Node):
 
         return keypoints_list
 
-    def image_cb(self, msg: Image) -> None:
+    def image_cb(self, msg: RGBD) -> None:
 
         if self.enable:
 
             # convert image + predict
-            cv_image = self.cv_bridge.imgmsg_to_cv2(msg)
+            cv_image = self.cv_bridge.imgmsg_to_cv2(msg.rgb)
             results = self.yolo.predict(
                 source=cv_image,
                 verbose=False,

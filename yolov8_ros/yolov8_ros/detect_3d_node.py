@@ -29,7 +29,7 @@ from cv_bridge import CvBridge
 from tf2_ros.buffer import Buffer
 from tf2_ros import TransformException
 from tf2_ros.transform_listener import TransformListener
-
+from realsense2_camera_msgs.msg import RGBD
 from sensor_msgs.msg import CameraInfo, Image
 from geometry_msgs.msg import TransformStamped
 from yolov8_msgs.msg import Detection
@@ -87,35 +87,31 @@ class Detect3DNode(Node):
 
         # subs
         self.depth_sub = message_filters.Subscriber(
-            self, Image, "depth_image",
+            self, RGBD, "depth_image",
             qos_profile=depth_image_qos_profile)
-        self.depth_info_sub = message_filters.Subscriber(
-            self, CameraInfo, "depth_info",
-            qos_profile=depth_info_qos_profile)
+
         self.detections_sub = message_filters.Subscriber(
             self, DetectionArray, "detections")
 
         self._synchronizer = message_filters.ApproximateTimeSynchronizer(
-            (self.depth_sub, self.depth_info_sub, self.detections_sub), 10, 0.5)
+            (self.depth_sub,  self.detections_sub), 10, 0.5)
         self._synchronizer.registerCallback(self.on_detections)
 
     def on_detections(
         self,
-        depth_msg: Image,
-        depth_info_msg: CameraInfo,
+        depth_msg: RGBD,
         detections_msg: DetectionArray,
     ) -> None:
 
         new_detections_msg = DetectionArray()
         new_detections_msg.header = detections_msg.header
         new_detections_msg.detections = self.process_detections(
-            depth_msg, depth_info_msg, detections_msg)
+            depth_msg, detections_msg)
         self._pub.publish(new_detections_msg)
 
     def process_detections(
         self,
-        depth_msg: Image,
-        depth_info_msg: CameraInfo,
+        depth_msg: RGBD,
         detections_msg: DetectionArray
     ) -> List[Detection]:
 
@@ -123,17 +119,17 @@ class Detect3DNode(Node):
         if not detections_msg.detections:
             return []
 
-        transform = self.get_transform(depth_info_msg.header.frame_id)
+        transform = self.get_transform(depth_msg.header.frame_id)
 
         if transform is None:
             return []
 
         new_detections = []
-        depth_image = self.cv_bridge.imgmsg_to_cv2(depth_msg)
+        depth_image = self.cv_bridge.imgmsg_to_cv2(depth_msg.depth)
 
         for detection in detections_msg.detections:
             bbox3d = self.convert_bb_to_3d(
-                depth_image, depth_info_msg, detection)
+                depth_image, depth_msg.depth_camera_info, detection)
 
             if bbox3d is not None:
                 new_detections.append(detection)
@@ -145,13 +141,14 @@ class Detect3DNode(Node):
 
                 if detection.keypoints.data:
                     keypoints3d = self.convert_keypoints_to_3d(
-                        depth_image, depth_info_msg, detection)
+                        depth_image, depth_msg.depth_camera_info, detection)
                     keypoints3d = Detect3DNode.transform_3d_keypoints(
                         keypoints3d, transform[0], transform[1])
                     keypoints3d.frame_id = self.target_frame
                     new_detections[-1].keypoints3d = keypoints3d
 
-        return new_detections
+        return new_detections 
+
 
     def convert_bb_to_3d(
         self,

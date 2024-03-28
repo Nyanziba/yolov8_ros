@@ -31,6 +31,7 @@ import message_filters
 from cv_bridge import CvBridge
 from ultralytics.utils.plotting import Annotator, colors
 
+from realsense2_camera_msgs.msg import RGBD
 from sensor_msgs.msg import Image
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
@@ -69,7 +70,7 @@ class DebugNode(Node):
 
         # subs
         image_sub = message_filters.Subscriber(
-            self, Image, "image_raw", qos_profile=image_qos_profile)
+            self, RGBD, "image_raw", qos_profile=image_qos_profile)
         detections_sub = message_filters.Subscriber(
             self, DetectionArray, "detections", qos_profile=10)
 
@@ -213,7 +214,7 @@ class DebugNode(Node):
 
     def detections_cb(self, img_msg: Image, detection_msg: DetectionArray) -> None:
 
-        cv_image = self.cv_bridge.imgmsg_to_cv2(img_msg)
+        cv_image = self.cv_bridge.imgmsg_to_cv2(img_msg.rgb)
         bb_marker_array = MarkerArray()
         kp_marker_array = MarkerArray()
 
@@ -251,7 +252,7 @@ class DebugNode(Node):
 
         # publish dbg image
         self._dbg_pub.publish(self.cv_bridge.cv2_to_imgmsg(cv_image,
-                                                           encoding=img_msg.encoding))
+                                                           encoding=img_msg.rgb.encoding))
         self._bb_markers_pub.publish(bb_marker_array)
         self._kp_markers_pub.publish(kp_marker_array)
 

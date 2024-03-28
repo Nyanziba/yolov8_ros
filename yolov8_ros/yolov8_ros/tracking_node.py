@@ -32,6 +32,7 @@ from ultralytics.utils import IterableSimpleNamespace, yaml_load
 from ultralytics.utils.checks import check_requirements, check_yaml
 from ultralytics.engine.results import Boxes
 
+from realsense2_camera_msgs.msg import RGBD
 from sensor_msgs.msg import Image
 from yolov8_msgs.msg import Detection
 from yolov8_msgs.msg import DetectionArray
@@ -65,7 +66,7 @@ class TrackingNode(Node):
 
         # subs
         image_sub = message_filters.Subscriber(
-            self, Image, "image_raw", qos_profile=image_qos_profile)
+            self, RGBD, "image_raw", qos_profile=image_qos_profile)
         detections_sub = message_filters.Subscriber(
             self, DetectionArray, "detections", qos_profile=10)
 
@@ -86,13 +87,13 @@ class TrackingNode(Node):
         tracker = TRACKER_MAP[cfg.tracker_type](args=cfg, frame_rate=1)
         return tracker
 
-    def detections_cb(self, img_msg: Image, detections_msg: DetectionArray) -> None:
+    def detections_cb(self, img_msg: RGBD, detections_msg: DetectionArray) -> None:
 
         tracked_detections_msg = DetectionArray()
         tracked_detections_msg.header = img_msg.header
 
         # convert image
-        cv_image = self.cv_bridge.imgmsg_to_cv2(img_msg)
+        cv_image = self.cv_bridge.imgmsg_to_cv2(img_msg.rgb)
 
         # parse detections
         detection_list = []
@@ -115,7 +116,7 @@ class TrackingNode(Node):
 
             det = Boxes(
                 np.array(detection_list),
-                (img_msg.height, img_msg.width)
+                (img_msg.rgb.height, img_msg.rgb.width)
             )
 
             tracks = self.tracker.update(det, cv_image)
@@ -125,7 +126,7 @@ class TrackingNode(Node):
                 for t in tracks:
 
                     tracked_box = Boxes(
-                        t[:-1], (img_msg.height, img_msg.width))
+                        t[:-1], (img_msg.rgb.height, img_msg.rgb.width))
 
                     tracked_detection: Detection = detections_msg.detections[int(
                         t[-1])]
