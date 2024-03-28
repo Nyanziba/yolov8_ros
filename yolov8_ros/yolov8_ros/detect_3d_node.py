@@ -28,6 +28,7 @@ import message_filters
 from cv_bridge import CvBridge
 from tf2_ros.buffer import Buffer
 from tf2_ros import TransformException
+import tf2_ros
 from tf2_ros.transform_listener import TransformListener
 from realsense2_camera_msgs.msg import RGBD
 from sensor_msgs.msg import CameraInfo, Image
@@ -92,6 +93,8 @@ class Detect3DNode(Node):
 
         self.detections_sub = message_filters.Subscriber(
             self, DetectionArray, "detections")
+        self.broadcaster = tf2_ros.TransformBroadcaster(self)
+        self.object_frame_id = "object_frame"
 
         self._synchronizer = message_filters.ApproximateTimeSynchronizer(
             (self.depth_sub,  self.detections_sub), 10, 0.5)
@@ -107,6 +110,21 @@ class Detect3DNode(Node):
         new_detections_msg.header = detections_msg.header
         new_detections_msg.detections = self.process_detections(
             depth_msg, detections_msg)
+        print(new_detections_msg.detections)
+        for detection in new_detections_msg.detections:
+            t = TransformStamped()
+            t.header.stamp = detections_msg.header.stamp
+            t.header.frame_id = depth_msg.header.frame_id
+            t.child_frame_id = self.object_frame_id
+            t.transform.translation.x = detection.bbox3d.center.position.x
+            t.transform.translation.y = detection.bbox3d.center.position.y
+            t.transform.translation.z = detection.bbox3d.center.position.z
+            t.transform.rotation.w = 1.0
+            t.transform.rotation.x = 0.0
+            t.transform.rotation.y = 0.0
+            t.transform.rotation.z = 0.0
+            self.broadcaster.sendTransform(t)
+    # Publish each transform
         self._pub.publish(new_detections_msg)
 
     def process_detections(
@@ -133,6 +151,7 @@ class Detect3DNode(Node):
 
             if bbox3d is not None:
                 new_detections.append(detection)
+                
 
                 bbox3d = Detect3DNode.transform_3d_box(
                     bbox3d, transform[0], transform[1])
