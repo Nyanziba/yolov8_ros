@@ -250,7 +250,7 @@ class action_yolo(Node):
                 aux_msg = Detection()
                 if hypothesis is None:
                     return
-                #hypothesisに値が入ってないときはスキップするようになっている
+                #hypothesisに値が入ってないときはスキップするようになってる
                 if hypothesis[i]:
                     print(hypothesis)
                     aux_msg.class_id = hypothesis[i]["class_id"]
