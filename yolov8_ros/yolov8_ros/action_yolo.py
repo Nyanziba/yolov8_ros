@@ -129,7 +129,11 @@ class action_yolo(Node):
                 "class_name": self.yolo.names[int(box_data.cls)],
                 "score": float(box_data.conf)
             }
-            hypothesis_list.append(hypothesis)
+            #26 is the class id for handbag
+            #0 is the class id for person
+            if int(box_data.cls) == 26:
+                hypothesis_list.append(hypothesis)
+
 
         return hypothesis_list
 
@@ -225,6 +229,11 @@ class action_yolo(Node):
             if results.boxes:
                 hypothesis = self.parse_hypothesis(results)
                 boxes = self.parse_boxes(results)
+                print(hypothesis)
+                if hypothesis is None:
+                    return
+            else:
+                return
 
             if results.masks:
                 masks = self.parse_masks(results)
@@ -235,16 +244,21 @@ class action_yolo(Node):
             # create detection msgs
             detections_msg = DetectionArray()
 
-            for i in range(len(results)):
+
+            for i in range(len(hypothesis)):
 
                 aux_msg = Detection()
-
-                if results.boxes:
+                if hypothesis is None:
+                    return
+                #hypothesisに値が入ってないときはスキップするようになっている
+                if hypothesis[i]:
+                    print(hypothesis)
                     aux_msg.class_id = hypothesis[i]["class_id"]
                     aux_msg.class_name = hypothesis[i]["class_name"]
                     aux_msg.score = hypothesis[i]["score"]
 
                     aux_msg.bbox = boxes[i]
+                    hypothesis = None
 
                 if results.masks:
                     aux_msg.mask = masks[i]
