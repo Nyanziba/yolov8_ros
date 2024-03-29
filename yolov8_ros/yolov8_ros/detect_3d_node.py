@@ -110,20 +110,7 @@ class Detect3DNode(Node):
         new_detections_msg.header = detections_msg.header
         new_detections_msg.detections = self.process_detections(
             depth_msg, detections_msg)
-        print(new_detections_msg.detections)
-        for detection in new_detections_msg.detections:
-            t = TransformStamped()
-            t.header.stamp = detections_msg.header.stamp
-            t.header.frame_id = depth_msg.header.frame_id
-            t.child_frame_id = self.object_frame_id
-            t.transform.translation.x = detection.bbox3d.center.position.x
-            t.transform.translation.y = detection.bbox3d.center.position.y
-            t.transform.translation.z = detection.bbox3d.center.position.z
-            t.transform.rotation.w = 1.0
-            t.transform.rotation.x = 0.0
-            t.transform.rotation.y = 0.0
-            t.transform.rotation.z = 0.0
-            self.broadcaster.sendTransform(t)
+        
     # Publish each transform
         self._pub.publish(new_detections_msg)
 
@@ -153,19 +140,11 @@ class Detect3DNode(Node):
                 new_detections.append(detection)
                 
 
-                bbox3d = Detect3DNode.transform_3d_box(
-                    bbox3d, transform[0], transform[1])
-                bbox3d.frame_id = self.target_frame
-                new_detections[-1].bbox3d = bbox3d
+                
+                self.broadcaster.sendTransform(bbox3d)
+                # new_detections[-1].bbox3d = bbox3d
 
-                if detection.keypoints.data:
-                    keypoints3d = self.convert_keypoints_to_3d(
-                        depth_image, depth_msg.depth_camera_info, detection)
-                    keypoints3d = Detect3DNode.transform_3d_keypoints(
-                        keypoints3d, transform[0], transform[1])
-                    keypoints3d.frame_id = self.target_frame
-                    new_detections[-1].keypoints3d = keypoints3d
-
+               
         return new_detections 
 
 
@@ -214,15 +193,25 @@ class Detect3DNode(Node):
         w = z * (size_x / fx)
         h = z * (size_y / fy)
 
-        # create 3D BB
-        msg = BoundingBox3D()
-        msg.center.position.x = x
-        msg.center.position.y = y
-        msg.center.position.z = z
-        msg.size.x = w
-        msg.size.y = h
-        msg.size.z = float(z_max - z_min)
-
+        # # create 3D BB
+        # msg = BoundingBox3D()
+        # msg.center.position.x = x
+        # msg.center.position.y = y
+        # msg.center.position.z = z
+        # msg.size.x = w
+        # msg.size.y = h
+        # msg.size.z = float(z_max - z_min)
+        msg = TransformStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = self.target_frame
+        msg.child_frame_id = self.object_frame_id
+        msg.transform.translation.x = x
+        msg.transform.translation.y = y
+        msg.transform.translation.z = z
+        msg.transform.rotation.w = 1.0
+        msg.transform.rotation.x = 0.0
+        msg.transform.rotation.y = 0.0
+        msg.transform.rotation.z = 0.0
         return msg
 
     def convert_keypoints_to_3d(
